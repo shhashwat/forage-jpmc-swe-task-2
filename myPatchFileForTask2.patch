@@ -1,0 +1,117 @@
+From 8bd82b70e31fbd9830a80dcc86d04847bd04f6fe Mon Sep 17 00:00:00 2001
+From: Shashwat <sshashwatssingh@gmail.com>
+Date: Wed, 10 Jul 2024 02:54:19 +0530
+Subject: [PATCH] Fixed TypeScript files and made web application output
+ correctly
+
+---
+ src/App.tsx   | 30 ++++++++++++++++++++++++------
+ src/Graph.tsx | 17 +++++++++++++++--
+ 2 files changed, 39 insertions(+), 8 deletions(-)
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 0728518..b251c5f 100755
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -8,6 +8,8 @@ import './App.css';
+  */
+ interface IState {
+   data: ServerRespond[],
++  // adding the showGraph property
++  showGraph: boolean,
+ }
+ 
+ /**
+@@ -22,6 +24,8 @@ class App extends Component<{}, IState> {
+       // data saves the server responds.
+       // We use this state to parse data down to the child element (Graph) as element property
+       data: [],
++      // setting the showGraph property false to only render it when the button is clicked
++      showGraph: false,
+     };
+   }
+ 
+@@ -29,18 +33,32 @@ class App extends Component<{}, IState> {
+    * Render Graph react component with state.data parse as property data
+    */
+   renderGraph() {
+-    return (<Graph data={this.state.data}/>)
++    if(this.state.showGraph) {
++      return (<Graph data={this.state.data}/>)
++    }
+   }
+ 
+   /**
+    * Get new data from server and update the state with the new data
+    */
+   getDataFromServer() {
+-    DataStreamer.getData((serverResponds: ServerRespond[]) => {
+-      // Update the state by creating a new array of data that consists of
+-      // Previous data in the state and the new data from server
+-      this.setState({ data: [...this.state.data, ...serverResponds] });
+-    });
++    //updating the function to make it get data continously instead of only when we click the button
++    let x = 0;
++    //setting a time interval function to get data continously at 100ms intervals
++    const interval = setInterval(() => {
++      DataStreamer.getData((serverResponds: ServerRespond[]) => {
++        // Update the state by creating a new array of data that consists of
++        // Previous data in the state and the new data from server
++        this.setState({
++          data: serverResponds,
++          showGraph: true,
++        });
++      });
++      x++;
++      if(x > 1000) {
++        clearInterval(interval);
++      }
++    },100);
+   }
+ 
+   /**
+diff --git a/src/Graph.tsx b/src/Graph.tsx
+index 3b2a7da..09587ce 100644
+--- a/src/Graph.tsx
++++ b/src/Graph.tsx
+@@ -14,7 +14,9 @@ interface IProps {
+  * Perspective library adds load to HTMLElement prototype.
+  * This interface acts as a wrapper for Typescript compiler.
+  */
+-interface PerspectiveViewerElement {
++
++//extending the PerspectiveViewerElement interface from HTMLElement
++interface PerspectiveViewerElement extends HTMLElement {
+   load: (table: Table) => void,
+ }
+ 
+@@ -32,7 +34,8 @@ class Graph extends Component<IProps, {}> {
+ 
+   componentDidMount() {
+     // Get element to attach the table from the DOM.
+-    const elem: PerspectiveViewerElement = document.getElementsByTagName('perspective-viewer')[0] as unknown as PerspectiveViewerElement;
++    //removed : PerspectiveViewerElement to simplfy it for this task, it is not needed since it is extended from HTMLElement
++    const elem = document.getElementsByTagName('perspective-viewer')[0] as unknown as PerspectiveViewerElement;
+ 
+     const schema = {
+       stock: 'string',
+@@ -48,6 +51,16 @@ class Graph extends Component<IProps, {}> {
+       // Load the `table` in the `<perspective-viewer>` DOM reference.
+ 
+       // Add more Perspective configurations here.
++      elem.setAttribute('view', 'y_line');
++      elem.setAttribute('column-pivots', '["stock"]');
++      elem.setAttribute('row-pivots', '["timestamp"]');
++      elem.setAttribute('columns', '["top_ask_price", "top_bid_price"]');
++      elem.setAttribute('aggregates',
++        `{"stock": "distinct count",
++          "top_ask_price": "avg",
++          "top_bid_price": "avg",
++          "timestamp": "distinct count"}`
++      )
+       elem.load(this.table);
+     }
+   }
+-- 
+2.43.0.windows.1
+
